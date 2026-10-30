@@ -1,1 +1,1 @@
-{"name": "Ma Salle", "short_name": "Ma Salle", "start_url": "./", "display": "standalone", "background_color": "#0b1220", "theme_color": "#0b1220"}
+{"name": "Ma Salle", "short_name": "Ma Salle", "description": "Carnet d’entraînement Push / Pull / Legs", "lang": "fr", "start_url": "./", "display": "standalone", "orientation": "portrait", "background_color": "#0C0F14", "theme_color": "#0C0F14"}
