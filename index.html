@@ -170,6 +170,7 @@ main{
 .switch:checked::after{transform:translateX(20px)}
 label.row{cursor:pointer}
 
+.machine-choice{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.machine-choice .btn{padding:8px;font-size:14px;min-height:48px}.machine-choice .btn{min-width:0}
 /* Exercice */
 .prev-note{margin-top:14px;padding:12px 16px;border-radius:var(--r-m);background:var(--surface);border:1px solid var(--line);font-size:14px;color:var(--text-2)}
 .prev-note b{color:var(--text);font-weight:600}
@@ -276,7 +277,7 @@ dialog.sheet::backdrop{background:rgba(4,6,9,.62)}
 <dialog id="sheet" class="sheet"></dialog>
 <div id="toast" class="toast" role="status" hidden></div>
 <script>
-const defaults={Push:{Pectoraux:['Développé couché incliné Smith','Pec fly','Développé incliné haltères','Dips','Développé couché','Poulie en haut','Poulie en bas'],Épaules:['Élévations latérales poulie','Élévations latérales haltères','Développé militaire machine','Développé militaire haltères'],Triceps:['Extension poulie corde vers le bas','Extension poulie corde vers le haut','Barre au front','Haltère au-dessus de la tête','Extension poulie barre vers le bas']},Pull:{Dos:['Tirage vertical barre horizontale','Tractions','Tirage vertical prise serrée','Tirage vertical prise moyenne','Tirage horizontal V machine Basic','Tirage horizontal largeur machine Basic','Tirage horizontal V machine Fitness','Tirage horizontal largeur machine Fitness','Rowing barre','Rowing bûcheron'],"Arrière d’épaules":['Reverse pec deck','Oiseau à la poulie','Oiseau aux haltères'],Biceps:['Curl incliné','Curl marteau haltères','Curl marteau poulie','Curl barre libre','Curl barre poulie']},Legs:{Quadriceps:['Presse horizontale','Squat','Fentes','Presse verticale','Hack squat'],"Ischio-jambiers":['Leg curl','Leg curl inversé machine assis','Leg curl inversé couché'],Fessiers:['Hip thrust'],Mollets:['Extensions mollets'],Lombaires:['Extensions lombaires au banc']},Extras:{Abdominaux:['Crunch poulie','Relevés de jambes','Training gainage'],Cardio:['Tapis de course','Vélo','Corde à sauter','Rameur']}};
+const defaults={Push:{Pectoraux:['Développé couché incliné Smith','Pec fly','Développé incliné haltères','Dips','Développé couché','Poulie en haut','Poulie en bas'],Épaules:['Élévations latérales poulie','Élévations latérales poulie — bras gauche','Élévations latérales poulie — bras droit','Élévations latérales haltères','Développé militaire machine','Développé militaire haltères'],Triceps:['Extension poulie corde vers le bas','Extension poulie corde vers le haut','Barre au front','Haltère au-dessus de la tête','Extension poulie barre vers le bas']},Pull:{Dos:['Tirage vertical barre horizontale','Tractions','Tirage vertical prise serrée','Tirage vertical prise moyenne','Tirage horizontal V','Tirage horizontal largeur','Rowing barre','Rowing bûcheron'],"Arrière d’épaules":['Reverse pec deck','Oiseau à la poulie','Oiseau aux haltères'],Biceps:['Curl incliné','Curl marteau haltères','Curl marteau poulie','Curl barre libre','Curl barre poulie']},Legs:{Quadriceps:['Presse horizontale','Squat','Fentes','Presse verticale','Hack squat'],"Ischio-jambiers":['Leg curl','Leg curl inversé machine assis','Leg curl inversé couché'],Fessiers:['Hip thrust'],Mollets:['Extensions mollets'],Lombaires:['Extensions lombaires au banc']},Extras:{Abdominaux:['Crunch poulie','Relevés de jambes','Training gainage'],Cardio:['Tapis de course','Vélo','Corde à sauter','Rameur']}};
 const PROGRAMS=['Push','Pull','Legs'];
 const PROG_VAR={Push:'--push',Pull:'--pull',Legs:'--legs',Extras:'--extra'};
 const progColor=p=>'var('+(PROG_VAR[p]||'--extra')+')';
@@ -313,10 +314,19 @@ function restForExercise(){const id=group+'::'+exercise;if(restExercise!==id){re
 setInterval(()=>{tickRest();document.querySelectorAll('[data-since]').forEach(el=>el.textContent=elapsed(el.dataset.since))},500);
 
 const KEY='masalle-v1';
-function normalize(d){d.library ||= structuredClone(defaults);d.history ||= [];if(d.library.Legs&&!d.library.Legs.Lombaires)d.library.Legs.Lombaires=['Extensions lombaires au banc'];if(d.active){d.active.extras ||= {};d.active.extras.Lombaires ??= false}return d}
+const legacyMachines={'Tirage horizontal V machine Basic':'Tirage horizontal V','Tirage horizontal V machine Fitness':'Tirage horizontal V','Tirage horizontal largeur machine Basic':'Tirage horizontal largeur','Tirage horizontal largeur machine Fitness':'Tirage horizontal largeur'};
+function normalize(d){
+ d.library ||= structuredClone(defaults);d.history ||= [];
+ if(d.library.Push?.Épaules){const a=d.library.Push.Épaules;for(const x of ['Élévations latérales poulie — bras gauche','Élévations latérales poulie — bras droit'])if(!a.includes(x))a.push(x)}
+ if(d.library.Pull?.Dos)d.library.Pull.Dos=[...new Set(d.library.Pull.Dos.map(x=>legacyMachines[x]||x))];
+ // Conserver les anciennes performances, sans leur attribuer arbitrairement une marque.
+ for(const session of [...d.history,...(d.active?[d.active]:[])])for(const entry of session.entries||[]){if(legacyMachines[entry.name]){entry.name=legacyMachines[entry.name];entry.machine ||= 'Non précisée'}}
+ if(d.library.Legs&&!d.library.Legs.Lombaires)d.library.Legs.Lombaires=['Extensions lombaires au banc'];
+ if(d.active){d.active.extras ||= {};d.active.extras.Lombaires ??= false}return d
+}
 let db;try{db=JSON.parse(localStorage.getItem(KEY))}catch{}
 db=normalize(db||{library:structuredClone(defaults),history:[],active:null});
-let page='home',group='',exercise='',detailIndex=0,progressKey='';
+let page='home',group='',exercise='',detailIndex=0,progressKey='',selectedMachine='Matrix';
 const app=document.getElementById('app'),dock=document.getElementById('dock');
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(db))}catch{toast('Impossible d’enregistrer sur cet appareil. Exporte une sauvegarde.')}};
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -348,7 +358,12 @@ function units(g,e){
 }
 function setTxt(s,u){return u.kind==='cardio'?`${num(s.kg)} km · ${num(s.reps)} min`:u.kind==='time'?`${num(s.kg)} s × ${num(s.reps)}`:`${num(s.kg)} kg × ${num(s.reps)}`}
 const progOfGroup=g=>g==='Abdominaux'||g==='Cardio'?'Extras':db.active.type;
-const entriesOf=()=>db.active.entries.filter(match(group,exercise));
+const machineOf=x=>x.machine||'Non précisée';
+const machineLabel=x=>x.machine?x.machine:'Non précisée';
+const machineHistory=(g,e,m)=>db.history.map(s=>({date:s.date,sets:(s.entries||[]).filter(x=>match(g,e)(x)&&machineOf(x)===m).flatMap(x=>x.sets||[])})).filter(s=>s.sets.length);
+const entriesOf=()=>db.active.entries.filter(x=>match(group,exercise)(x)&&machineOf(x)===selectedMachine);
+function chooseMachine(m){selectedMachine=m;if(!entriesOf().length)addEntry(false);save();render()}
+
 
 // Mise en veille de l'écran bloquée pendant une séance, quand le navigateur le permet.
 let wakeLock=null;
@@ -487,9 +502,9 @@ async function addEx(){
 }
 
 /* ---------- Exercice ---------- */
-function openEx(e){exercise=e;if(!db.active.entries.some(match(group,exercise)))addEntry(false);go('exercise')}
-function addEntry(r=true){db.active.entries.push({group,name:exercise,sets:[]});save();if(r)render()}
-const prevSets=()=>{const s=lastSession(group,exercise);return s?setsOf(s,group,exercise):[]};
+function openEx(e){exercise=e;selectedMachine='Matrix';if(!entriesOf().length)addEntry(false);go('exercise')}
+function addEntry(r=true){db.active.entries.push({group,name:exercise,machine:selectedMachine,sets:[]});save();if(r)render()}
+const prevSets=()=>machineHistory(group,exercise,selectedMachine)[0]?.sets||[];
 function addSet(i){
   const e=entriesOf()[i],last=e.sets[e.sets.length-1],p=prevSets()[e.sets.length];
   const src=last||p;
@@ -506,16 +521,17 @@ function delSet(i,j){
 }
 async function cancelExercise(){
   if(!db.active)return;
-  if(!count(group,exercise)){db.active.entries=db.active.entries.filter(x=>!match(group,exercise)(x));save();return go('group')}
+  if(!count(group,exercise)){db.active.entries=db.active.entries.filter(x=>!(match(group,exercise)(x)&&machineOf(x)===selectedMachine));save();return go('group')}
   if(!await sheet({title:'Retirer '+exercise+' ?',text:'Ses séries seront supprimées de la séance en cours.',ok:'Retirer',danger:true}))return;
-  db.active.entries=db.active.entries.filter(x=>!match(group,exercise)(x));save();go('group');
+  db.active.entries=db.active.entries.filter(x=>!(match(group,exercise)(x)&&machineOf(x)===selectedMachine));save();go('group');
 }
 const inVal=v=>Number(v)?String(v).replace('.',','):'';
 function viewExercise(){
   if(!db.active){go('home');return null}
-  const u=units(group,exercise),entries=entriesOf(),prevS=lastSession(group,exercise),prev=prevS?setsOf(prevS,group,exercise):[];
+  const u=units(group,exercise),entries=entriesOf(),past=machineHistory(group,exercise,selectedMachine),prevS=past[0],prev=prevS?.sets||[];
   restForExercise();
   let h=navHead(group,'group')+`<header class="page-head"><p class="eyebrow">${esc(group)}</p><h1 class="title-l">${esc(exercise)}</h1></header>`;
+  h+=`<section class="section"><h2 class="section-title">Machine utilisée</h2><div class="machine-choice">${['Matrix','Technogym','Autre / poids libres','Non précisée'].map(m=>`<button class="btn ${selectedMachine===m?'btn-primary':'btn-secondary'}" onclick="chooseMachine(${arg(m)})">${esc(m)}</button>`).join('')}</div></section>`;
   h+=`<p class="prev-note">${prevS?`Dernière fois <b>${ago(prevS.date)}</b> · ${plural(prev.length,'série')} · meilleure <b>${setTxt(best(prev),u)}</b>`:'Première fois sur cet exercice.'}</p>`;
   entries.forEach((entry,i)=>{
     h+=`<section class="sets">${entries.length>1?`<h2 class="sets-title">Passage ${i+1}</h2>`:''}<div class="sets-head" aria-hidden="true"><span>#</span><span>Préc.</span><span>${u.a}</span><span>${u.b}</span><span></span></div>`;
@@ -527,8 +543,8 @@ function viewExercise(){
   });
   if(!entries.length)h+=`<button class="btn btn-secondary btn-block add-set" onclick="addEntry()">${icon('plus')}Ajouter une série</button>`;
   // Toutes les séries de toutes les anciennes séances pour cet exercice.
-  const past=db.history.map(s=>({date:s.date,sets:setsOf(s,group,exercise)})).filter(s=>s.sets.length);
-  h+=`<section class="section exercise-history"><div class="section-row"><h2 class="section-title">Historique de cet exercice</h2><span class="section-meta">${plural(past.length,'séance')}</span></div>`;
+  // Historique filtré par machine : les charges ne sont pas comparées entre marques.
+  h+=`<section class="section exercise-history"><div class="section-row"><h2 class="section-title">Historique · ${esc(selectedMachine)}</h2><span class="section-meta">${plural(past.length,'séance')}</span></div>`;
   if(past.length){
     h+=`<div class="list">`;
     for(const session of past){
@@ -567,7 +583,7 @@ function viewDetails(){
   const entries=s.entries.filter(e=>e.sets.length);
   if(entries.length){
     h+=`<section class="section"><h2 class="section-title">Exercices</h2><div class="list">`;
-    for(const e of entries){const u=units(e.group,e.name);h+=`<div class="ex-block"><div class="ex-head"><h3>${esc(e.name)}</h3><span>${esc(e.group)}</span></div><ol class="set-chips">${e.sets.map((v,j)=>`<li><span>${j+1}</span>${setTxt(v,u)}</li>`).join('')}</ol></div>`}
+    for(const e of entries){const u=units(e.group,e.name);h+=`<div class="ex-block"><div class="ex-head"><h3>${esc(e.name)}</h3><span>${esc(e.group)} · ${esc(machineLabel(e))}</span></div><ol class="set-chips">${e.sets.map((v,j)=>`<li><span>${j+1}</span>${setTxt(v,u)}</li>`).join('')}</ol></div>`}
     h+='</div></section>';
   }else h+=`<div class="section empty"><b>Séance vide</b>Aucune série n’a été saisie.</div>`;
   h+=`<div class="actions"><button class="btn btn-ghost-danger btn-block" onclick="deleteSession(${detailIndex})">${icon('trash')}Supprimer cette séance</button></div>`;
