@@ -192,6 +192,12 @@ label.row{cursor:pointer}
 .add-set{margin-top:8px;min-height:48px}
 .hint{margin:16px 4px 0;font-size:14px;color:var(--text-3)}
 
+/* Historique des séries sur la fiche exercice */
+.exercise-history{margin-top:30px}
+.exercise-history .ex-block+.ex-block{border-top:1px solid var(--line)}
+.exercise-history .ex-head{align-items:center}
+.exercise-history .set-chips{margin-top:12px}
+.exercise-history .history-date{font-weight:600;color:var(--text)}
 /* Historique / détails */
 .ex-block{padding:14px 16px}
 .ex-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
@@ -520,6 +526,19 @@ function viewExercise(){
     h+=`<button class="btn btn-secondary btn-block add-set" onclick="addSet(${i})">${icon('plus')}Ajouter une série</button></section>`;
   });
   if(!entries.length)h+=`<button class="btn btn-secondary btn-block add-set" onclick="addEntry()">${icon('plus')}Ajouter une série</button>`;
+  // Toutes les séries de toutes les anciennes séances pour cet exercice.
+  const past=db.history.map(s=>({date:s.date,sets:setsOf(s,group,exercise)})).filter(s=>s.sets.length);
+  h+=`<section class="section exercise-history"><div class="section-row"><h2 class="section-title">Historique de cet exercice</h2><span class="section-meta">${plural(past.length,'séance')}</span></div>`;
+  if(past.length){
+    h+=`<div class="list">`;
+    for(const session of past){
+      h+=`<div class="ex-block"><div class="ex-head"><h3 class="history-date">${esc(fmtDay(session.date))}</h3><span>${plural(session.sets.length,'série')}</span></div><ol class="set-chips">${session.sets.map((s,j)=>`<li><span>${j+1}</span>${setTxt(s,u)}</li>`).join('')}</ol></div>`;
+    }
+    h+=`</div>`;
+  }else{
+    h+=`<div class="empty"><b>Pas encore d'historique</b>Toutes tes anciennes séries apparaîtront ici après ta première séance terminée.</div>`;
+  }
+  h+=`</section>`;
   h+=`<p class="hint">${u.kind==='cardio'?'Colonne 1 : distance en km. Colonne 2 : durée en minutes.':u.kind==='time'?'Colonne 1 : durée en secondes. Colonne 2 : nombre de répétitions.':'Une nouvelle série reprend les valeurs de la précédente. Touche « Préc. » pour copier la séance d’avant.'} Tout est enregistré automatiquement.</p>`;
   h+=`<div class="actions"><button class="btn btn-primary btn-block" onclick="go('workout')">${icon('check')}Exercice terminé</button><button class="btn btn-ghost-danger btn-block" onclick="cancelExercise()">Retirer l’exercice de la séance</button></div>`;
   return h;
